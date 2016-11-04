@@ -3,9 +3,11 @@
 
 #include <iostream>
 
-// Vladislav Kiselyov   M3139
+// Vladislav Kiselyov   M3239
 class big_integer {
+public:
 	typedef unsigned int loc_t;
+private:
 	typedef long long buf_t;
 	static const long long pw_loc_t = 31;
 	static const long long size_loc_t = ((buf_t)1) << pw_loc_t;
@@ -28,7 +30,9 @@ class big_integer {
 
 	void left_shift(int shift);
 	void right_shift(int shift);
-
+	
+	void duplicate();
+	
 public:
 
 	big_integer();

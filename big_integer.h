@@ -1,5 +1,5 @@
 #ifndef BIG_INTEGER_H
-#define BIG_INTEGER_H 0
+#define BIG_INTEGER_H
 
 #include <iostream>
 
@@ -13,14 +13,14 @@ private:
 	static const long long size_loc_t = ((buf_t)1) << pw_loc_t;
 	static const int start_max_size = 2;
 	
-	int max_size, real_size;
-	loc_t *a;
-	int inv;
+	int mutable max_size, real_size;
+	loc_t mutable *a;
+	char mutable inv;
 	
-	void upd_max_size(int new_max_size);
+	void upd_max_size(int new_max_size) const;
 
-	void check_max_size();
-	void upd_real_size();
+	void check_max_size() const;
+	void upd_real_size() const;
 
 	void add(big_integer const& s);
 	void sub(big_integer const& s);
@@ -33,6 +33,8 @@ private:
 	
 	void duplicate();
 	
+	void init(buf_t c);
+	void cancel_small_obj_opt() const;
 public:
 
 	big_integer();

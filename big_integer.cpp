@@ -8,7 +8,6 @@ namespace {
 		a[0] = num_refs;
 		return ++a;
 	}
-	
 	void loc_del(loc_t* a) {
 		a--;
 		delete []a;
@@ -24,9 +23,15 @@ namespace {
 		}
 	}
 	
+	int loc_abs(int w) {
+		if (w < 0) {
+			w = -w;
+		}
+		return w;
+	}
 }
 
-void big_integer::upd_max_size(int new_max_size) {
+void big_integer::upd_max_size(int new_max_size) const {
 	int w;
 	
 	loc_t *s = loc_new(new_max_size, a[-1]);
@@ -43,7 +48,7 @@ void big_integer::upd_max_size(int new_max_size) {
 	}
 	max_size = new_max_size;
 }
-void big_integer::check_max_size() {
+void big_integer::check_max_size() const {
 	if ((max_size > start_max_size) && (max_size / real_size >= 4)) {
 		int w;
 		for (w = start_max_size; w < real_size; w *= 2) {
@@ -53,14 +58,26 @@ void big_integer::check_max_size() {
 		}
 	}
 }
-void big_integer::upd_real_size() {
+void big_integer::upd_real_size() const {
+	if (max_size == 1) {
+		return;
+	}
+	
 	int w;
 	for (w = real_size - 1; (w > 0) && (a[w] == 0); w--) {
 	}
 	real_size = w + 1;
-	if ((w == 0) && (a[0] == 0)) {
-		inv = 1;
+	
+	if (real_size == 1) {
+		max_size = 1;
+		int res = a[0] * inv;
+		
+		loc_del(a);
+		
+		a = (loc_t*)res;
+		return;
 	}
+	
 	check_max_size();
 }
 
@@ -130,6 +147,24 @@ void big_integer::sub(big_integer const& s) {
 }
 
 int big_integer::cmp(big_integer const& s) const{
+	if (max_size == 1) {
+		if (s.max_size == 1) {
+			if ((int)a < (int)s.a) {
+				return -1;
+			}
+			if ((int)a > (int)s.a) {
+				return 1;
+			}
+			return 0;
+		}
+		
+		return -s.inv;
+	} else {
+		if (s.max_size == 1) {
+			return inv;
+		}
+	}
+	
 	if ((inv < 0) && (s.inv > 0)) {
 		return 1;
 	}
@@ -153,6 +188,25 @@ int big_integer::cmp(big_integer const& s) const{
 	return 0;
 }
 int big_integer::abs_cmp(big_integer const& s) {
+	if (max_size == 1) {
+		if (s.max_size == 1) {
+			if (loc_abs((int)a) < loc_abs((int)s.a)) {
+				return -1;
+			}
+			if (loc_abs((int)a) > loc_abs((int)s.a)) {
+				return 1;
+			}
+			return 0;
+		}
+		
+		return -1;
+	} else {
+		if (s.max_size == 1) {
+			return 1;
+		}
+	}
+	
+	
 	if (real_size < s.real_size) {
 		return -1;
 	}
@@ -167,7 +221,7 @@ int big_integer::abs_cmp(big_integer const& s) {
 			return 1;
 		}
 	}
-  return 0;
+	return 0;
 }
 
 void big_integer::left_shift(int shift) {
@@ -177,6 +231,7 @@ void big_integer::left_shift(int shift) {
 	while (w < real_size + w_shift + 1) {
 		w <<= 1;
 	}
+	
 	if (w != max_size) {
 		upd_max_size(w);
 	}
@@ -185,9 +240,10 @@ void big_integer::left_shift(int shift) {
 		e = a[w];
 		a[w] = 0;
 		a[w + w_shift + 1] |= e >> (pw_loc_t - shift);
-		a[w + w_shift] = (e & ((1 << (pw_loc_t - shift)) - 1) ) << shift;
+		a[w + w_shift] = (e & (((loc_t)1 << (pw_loc_t - shift)) - 1) ) << shift;
 	}
 	real_size += w_shift + 1;
+	
 	upd_real_size();
 }
 void big_integer::right_shift(int shift) {
@@ -220,6 +276,7 @@ void big_integer::right_shift(int shift) {
 }
 
 void big_integer::duplicate() {
+	
 	if (a[-1] > 1) {
 		loc_t *s = loc_new(max_size, 1);
 		
@@ -231,37 +288,63 @@ void big_integer::duplicate() {
 	}
 }
 
-big_integer::big_integer()
-	: max_size(start_max_size), real_size(1), inv(1) {
-	
-	a = loc_new(max_size, 1);
-	
-	for (int w = 0; w < max_size; w++) {
-		a[w] = 0;
+void big_integer::init(buf_t c) {
+	if ((-size_loc_t < c) && (c < size_loc_t)) {
+		a = (loc_t*)c;
+	} else {
+		max_size = 2;
+		a = loc_new(2, 1);
+		real_size = 2;
+		
+		inv = 1;
+		if (c < 0) {
+			c = -c;
+			inv = -1;
+		}
+		
+		a[0] = c % size_loc_t;
+		a[1] = c / size_loc_t;
 	}
+	upd_real_size();
+}
+
+void big_integer::cancel_small_obj_opt() const {
+	if (max_size == 1) {
+		int buf = (int)a;
+		max_size = 2;
+		if (buf < 0) {
+			inv = -1;
+			buf = -buf;
+		} else {
+			inv = 1;
+		}
+		
+		a = loc_new(2, 1);
+		a[0] = (loc_t)buf;
+		a[1] = 0;
+	}
+}
+
+
+big_integer::big_integer()
+	: max_size(1), real_size(1), inv(1) {
+	
+	a = (loc_t*)(0);
 }
 big_integer::big_integer(big_integer const& v)
 	: max_size(v.max_size), real_size(v.real_size), inv(v.inv) {
 	
-	a = v.a;
-	inc_count(a);
+	if (max_size > 1) {
+		a = v.a;
+		inc_count(a);
+	} else {
+		a = v.a;
+	}
 }
 big_integer::big_integer(int t)
-	: max_size(start_max_size), real_size(1), inv(-1) {
+	: max_size(1), real_size(1), inv(1) {
 	
-	a = loc_new(max_size, 1);
-	
-	if (t >= 0) {
-		t = -t;
-		inv = 1;
-	}
-	for (int w = 0; w < max_size; w++) {
-		a[w] = -(t % size_loc_t);
-		t /= size_loc_t;
-		if (a[w]) {
-			real_size = w + 1;
-		}
-	}
+	a = (loc_t*)(t);
 }
 big_integer::big_integer(std::string const& str)
 	: max_size(start_max_size), inv(1) {
@@ -313,16 +396,28 @@ big_integer::big_integer(std::string const& str)
 	}
 	real_size = t;
 	delete []s;
+	
 	upd_real_size();
 }
 
 big_integer::~big_integer() {
-	dec_count(a);
+	if (max_size > 1) {
+		dec_count(a);
+	}
 }
 
 
 big_integer& big_integer::operator+=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		
+		init((buf_t)(int)a + (buf_t)(int)v.a);
+		return *this;
+	}
+	
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	if (inv * v.inv == 1) {
 		add(v);
@@ -338,10 +433,20 @@ big_integer& big_integer::operator+=(big_integer const& v) {
 			sub(v);
 		}
 	}
+	v.upd_real_size();
+	
 	return *this;
 }
 big_integer& big_integer::operator-=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		init((buf_t)(int)a - (buf_t)(int)v.a);
+		return *this;
+	}
+	
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	if (inv * v.inv == -1) {
 		add(v);
@@ -358,11 +463,20 @@ big_integer& big_integer::operator-=(big_integer const& v) {
 			sub(v);
 		}
 	}
+	v.upd_real_size();
+	
 	return *this;
 }
   
 big_integer& big_integer::operator*=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		init((buf_t)(int)a * (buf_t)(int)v.a);
+		return *this;
+	}
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	inv *= v.inv;
 	int new_max_size = max_size;
@@ -400,12 +514,22 @@ big_integer& big_integer::operator*=(big_integer const& v) {
 	a = s;
 	max_size = new_max_size;
 	real_size += v.real_size;
-	upd_real_size();
 	
+	upd_real_size();
+	v.upd_real_size();
 	return *this;
 }
 big_integer& big_integer::operator/=(big_integer const& divider1) {
+	if ((max_size == 1) && (divider1.max_size == 1)) {
+		init((buf_t)(int)a / (buf_t)(int)divider1.a);
+		return *this;
+	}
+	
+	cancel_small_obj_opt();
 	duplicate();
+	
+	divider1.cancel_small_obj_opt();
+	
 	if (*this == 0) {
 		return *this;
 	}
@@ -507,11 +631,15 @@ big_integer& big_integer::operator/=(big_integer const& divider1) {
 	inv = new_inv;
 
 	real_size = old_real_size - sz + 1;
+	
 	upd_real_size();
+	divider1.upd_real_size();
 	return *this;
 }
 big_integer& big_integer::operator%=(big_integer const& v) {
-	duplicate();
+	if (max_size != 1) {
+		duplicate();
+	}
 	
 	big_integer buf = *this;
 	buf /= v;
@@ -521,6 +649,28 @@ big_integer& big_integer::operator%=(big_integer const& v) {
 }
 
 big_integer& big_integer::operator=(big_integer const& v) {
+	if (max_size == 1) {
+		if (v.max_size == 1) {
+			a = v.a;
+			return *this;
+		}
+		a = v.a;
+		max_size = v.max_size;
+		real_size = v.real_size;
+		inv = v.inv;
+		
+		inc_count(a);
+		return *this;
+	}
+	if (v.max_size == 1) {
+		dec_count(a);
+		
+		max_size = 1;
+		real_size = v.real_size;
+		a = v.a;
+		return *this;
+	}
+	
 	if (a != v.a) {
 		dec_count(a);
 		
@@ -535,6 +685,10 @@ big_integer& big_integer::operator=(big_integer const& v) {
 }
 
 big_integer& big_integer::operator++() {
+	if (max_size == 1) {
+		init((buf_t)(int)a + 1);
+		return *this;
+	}
 	duplicate();
 	
 	if (real_size == max_size) {
@@ -564,6 +718,10 @@ big_integer big_integer::operator++(int) {
 	return res;
 }
 big_integer& big_integer::operator--() {
+	if (max_size == 1) {
+		init((buf_t)(int)a - 1);
+		return *this;
+	}
 	duplicate();
 	
 	if (real_size == max_size) {
@@ -597,7 +755,14 @@ big_integer big_integer::operator--(int) {
 }
 
 big_integer& big_integer::operator&=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		init((int)a & (int)v.a);
+		return *this;
+	}
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	int w;
 	if (max_size < v.max_size) {
@@ -651,10 +816,18 @@ big_integer& big_integer::operator&=(big_integer const& v) {
 	}
 	real_size = max_size;
 	upd_real_size();
+	v.upd_real_size();
 	return *this;
 }
 big_integer& big_integer::operator|=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		init((int)a | (int)v.a);
+		return *this;
+	}
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	int w;
 	if (max_size < v.max_size) {
@@ -706,10 +879,18 @@ big_integer& big_integer::operator|=(big_integer const& v) {
 	}
 	real_size = max_size;
 	upd_real_size();
+	v.upd_real_size();
 	return *this;
 }
 big_integer& big_integer::operator^=(big_integer const& v) {
+	if ((max_size == 1) && (v.max_size == 1)) {
+		init((int)a ^ (int)v.a);
+		return *this;
+	}
+	cancel_small_obj_opt();
 	duplicate();
+	
+	v.cancel_small_obj_opt();
 	
 	int w;
 	if (max_size < v.max_size) {
@@ -763,10 +944,12 @@ big_integer& big_integer::operator^=(big_integer const& v) {
 	}
 	real_size = max_size;
 	upd_real_size();
+	v.upd_real_size();
 	return *this;
 }
 
 big_integer& big_integer::operator<<=(int shift) {
+	cancel_small_obj_opt();
 	duplicate();
 	
 	if (shift < 0) {
@@ -777,6 +960,7 @@ big_integer& big_integer::operator<<=(int shift) {
 	return *this;
 }
 big_integer& big_integer::operator>>=(int shift) {
+	cancel_small_obj_opt();
 	duplicate();
 	
 	if (shift < 0) {
@@ -793,17 +977,24 @@ big_integer big_integer::operator+() const {
 }
 big_integer big_integer::operator-() const {
 	big_integer rez = (*this);
-	
-	rez.duplicate();
-	rez.inv *= -1;
-	rez.upd_real_size();
+	if (rez.max_size == 1) {
+		rez.a = (loc_t*)(-(int)rez.a);
+	} else {
+		rez.duplicate();
+		rez.inv *= -1;
+	}
 	return rez;
 }
 big_integer big_integer::operator~() const {
 	big_integer res = (*this);
-	++res;
-	res.inv *= -1;
-	res.upd_real_size();
+	
+	if (max_size == 1) {
+		res.a = (loc_t*)(~(int)res.a);
+	} else {
+		++res;
+		res.inv *= -1;
+		res.upd_real_size();
+	}
 	return res;
 }
 
@@ -861,6 +1052,33 @@ big_integer operator>>(big_integer c, int shift) {
 }
 
 std::string to_string(big_integer const& a) {
+	if (a.max_size == 1) {
+		int c = (int)a.a;
+		std::string res;
+		
+		if (c < 0) {
+			c *= -1;
+			res.push_back('-');
+		}
+		
+		char s[10];
+		int w;
+		
+		for (w = 0; w < 10; w++) {
+			s[w] = c % 10;
+			c /= 10;
+		}
+		
+		for (w = 9; (w > 0) && (s[w] == 0); w--) {
+		}
+		
+		while (w >= 0) {
+			res.push_back(s[w] + '0');
+			w--;
+		}
+		return res;
+	}
+	
 	int w = a.real_size - 1, e, r, t = 0;
 	while ((w > 0) && (a.a[w] == 0)) {
 		w--;

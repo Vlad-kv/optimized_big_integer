@@ -149,10 +149,10 @@ void big_integer::sub(big_integer const& s) {
 int big_integer::cmp(big_integer const& s) const{
 	if (max_size == 1) {
 		if (s.max_size == 1) {
-			if ((int)a < s.get_small()) {
+			if (get_small() < s.get_small()) {
 				return -1;
 			}
-			if ((int)a > s.get_small()) {
+			if (get_small() > s.get_small()) {
 				return 1;
 			}
 			return 0;
@@ -190,10 +190,10 @@ int big_integer::cmp(big_integer const& s) const{
 int big_integer::abs_cmp(big_integer const& s) {
 	if (max_size == 1) {
 		if (s.max_size == 1) {
-			if (loc_abs((int)a) < loc_abs(s.get_small())) {
+			if (loc_abs(get_small()) < loc_abs(s.get_small())) {
 				return -1;
 			}
-			if (loc_abs((int)a) > loc_abs(s.get_small())) {
+			if (loc_abs(get_small()) > loc_abs(s.get_small())) {
 				return 1;
 			}
 			return 0;

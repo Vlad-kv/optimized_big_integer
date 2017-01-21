@@ -35,6 +35,10 @@ private:
 	
 	void init(buf_t c);
 	void cancel_small_obj_opt() const;
+	
+	int get_small() const;
+	void set_small(int val) const;
+	
 public:
 
 	big_integer();

@@ -1,5 +1,5 @@
 #include "big_integer.h"
-
+#include <cassert>
 namespace {
 	typedef big_integer::loc_t loc_t;
 	
@@ -74,7 +74,7 @@ void big_integer::upd_real_size() const {
 		
 		loc_del(a);
 		
-		a = (loc_t*)res;
+		set_small(res);
 		return;
 	}
 	
@@ -149,10 +149,10 @@ void big_integer::sub(big_integer const& s) {
 int big_integer::cmp(big_integer const& s) const{
 	if (max_size == 1) {
 		if (s.max_size == 1) {
-			if ((int)a < (int)s.a) {
+			if ((int)a < s.get_small()) {
 				return -1;
 			}
-			if ((int)a > (int)s.a) {
+			if ((int)a > s.get_small()) {
 				return 1;
 			}
 			return 0;
@@ -190,10 +190,10 @@ int big_integer::cmp(big_integer const& s) const{
 int big_integer::abs_cmp(big_integer const& s) {
 	if (max_size == 1) {
 		if (s.max_size == 1) {
-			if (loc_abs((int)a) < loc_abs((int)s.a)) {
+			if (loc_abs((int)a) < loc_abs(s.get_small())) {
 				return -1;
 			}
-			if (loc_abs((int)a) > loc_abs((int)s.a)) {
+			if (loc_abs((int)a) > loc_abs(s.get_small())) {
 				return 1;
 			}
 			return 0;
@@ -290,7 +290,7 @@ void big_integer::duplicate() {
 
 void big_integer::init(buf_t c) {
 	if ((-size_loc_t < c) && (c < size_loc_t)) {
-		a = (loc_t*)c;
+		set_small(c);
 	} else {
 		max_size = 2;
 		a = loc_new(2, 1);
@@ -310,7 +310,7 @@ void big_integer::init(buf_t c) {
 
 void big_integer::cancel_small_obj_opt() const {
 	if (max_size == 1) {
-		int buf = (int)a;
+		int buf = get_small();
 		max_size = 2;
 		if (buf < 0) {
 			inv = -1;
@@ -325,11 +325,21 @@ void big_integer::cancel_small_obj_opt() const {
 	}
 }
 
+int big_integer::get_small() const {
+	assert(max_size == 1);
+    return (int)(std::ptrdiff_t)a;
+}
+
+void big_integer::set_small(int val) const {
+	assert(max_size == 1);
+	a = (loc_t*)(std::ptrdiff_t)val;
+}
+
 
 big_integer::big_integer()
 	: max_size(1), real_size(1), inv(1) {
 	
-	a = (loc_t*)(0);
+	set_small(0);
 }
 big_integer::big_integer(big_integer const& v)
 	: max_size(v.max_size), real_size(v.real_size), inv(v.inv) {
@@ -344,7 +354,7 @@ big_integer::big_integer(big_integer const& v)
 big_integer::big_integer(int t)
 	: max_size(1), real_size(1), inv(1) {
 	
-	a = (loc_t*)(t);
+	init(t);
 }
 big_integer::big_integer(std::string const& str)
 	: max_size(start_max_size), inv(1) {
@@ -410,7 +420,7 @@ big_integer::~big_integer() {
 big_integer& big_integer::operator+=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
 		
-		init((buf_t)(int)a + (buf_t)(int)v.a);
+		init((buf_t)get_small() + (buf_t)(int)v.get_small());
 		return *this;
 	}
 	
@@ -439,7 +449,7 @@ big_integer& big_integer::operator+=(big_integer const& v) {
 }
 big_integer& big_integer::operator-=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
-		init((buf_t)(int)a - (buf_t)(int)v.a);
+		init((buf_t)get_small() - (buf_t)(int)v.get_small());
 		return *this;
 	}
 	
@@ -470,7 +480,7 @@ big_integer& big_integer::operator-=(big_integer const& v) {
   
 big_integer& big_integer::operator*=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
-		init((buf_t)(int)a * (buf_t)(int)v.a);
+		init((buf_t)get_small() * (buf_t)v.get_small());
 		return *this;
 	}
 	cancel_small_obj_opt();
@@ -521,7 +531,7 @@ big_integer& big_integer::operator*=(big_integer const& v) {
 }
 big_integer& big_integer::operator/=(big_integer const& divider1) {
 	if ((max_size == 1) && (divider1.max_size == 1)) {
-		init((buf_t)(int)a / (buf_t)(int)divider1.a);
+		init((buf_t)get_small() / (buf_t)divider1.get_small());
 		return *this;
 	}
 	
@@ -686,7 +696,7 @@ big_integer& big_integer::operator=(big_integer const& v) {
 
 big_integer& big_integer::operator++() {
 	if (max_size == 1) {
-		init((buf_t)(int)a + 1);
+		init((buf_t)get_small() + 1);
 		return *this;
 	}
 	duplicate();
@@ -719,7 +729,7 @@ big_integer big_integer::operator++(int) {
 }
 big_integer& big_integer::operator--() {
 	if (max_size == 1) {
-		init((buf_t)(int)a - 1);
+		init((buf_t)get_small() - 1);
 		return *this;
 	}
 	duplicate();
@@ -756,7 +766,7 @@ big_integer big_integer::operator--(int) {
 
 big_integer& big_integer::operator&=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
-		init((int)a & (int)v.a);
+		init(get_small() & (int)v.get_small());
 		return *this;
 	}
 	cancel_small_obj_opt();
@@ -821,7 +831,7 @@ big_integer& big_integer::operator&=(big_integer const& v) {
 }
 big_integer& big_integer::operator|=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
-		init((int)a | (int)v.a);
+		init(get_small() | (int)v.get_small());
 		return *this;
 	}
 	cancel_small_obj_opt();
@@ -884,7 +894,7 @@ big_integer& big_integer::operator|=(big_integer const& v) {
 }
 big_integer& big_integer::operator^=(big_integer const& v) {
 	if ((max_size == 1) && (v.max_size == 1)) {
-		init((int)a ^ (int)v.a);
+		init(get_small() ^ (int)v.get_small());
 		return *this;
 	}
 	cancel_small_obj_opt();
@@ -978,7 +988,7 @@ big_integer big_integer::operator+() const {
 big_integer big_integer::operator-() const {
 	big_integer rez = (*this);
 	if (rez.max_size == 1) {
-		rez.a = (loc_t*)(-(int)rez.a);
+		rez.set_small(-rez.get_small());
 	} else {
 		rez.duplicate();
 		rez.inv *= -1;
@@ -989,7 +999,7 @@ big_integer big_integer::operator~() const {
 	big_integer res = (*this);
 	
 	if (max_size == 1) {
-		res.a = (loc_t*)(~(int)res.a);
+		res.set_small(~res.get_small());
 	} else {
 		++res;
 		res.inv *= -1;
@@ -1053,7 +1063,7 @@ big_integer operator>>(big_integer c, int shift) {
 
 std::string to_string(big_integer const& a) {
 	if (a.max_size == 1) {
-		int c = (int)a.a;
+		int c = a.get_small();
 		std::string res;
 		
 		if (c < 0) {
@@ -1131,9 +1141,11 @@ std::string to_string(big_integer const& a) {
 	try {
 		std::string s(res);
 		delete []res;
+		delete []f;
 		return s;
 	} catch (...) {
 		delete []res;
+		delete []f;
 		throw;
 	}
 }
